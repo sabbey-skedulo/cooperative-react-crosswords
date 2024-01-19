@@ -3,7 +3,7 @@ import {useCallback, useEffect, useState} from "react";
 import MyCrossword, {GuardianCrossword} from 'mycrossword';
 import 'mycrossword/dist/index.css';
 import useWebSocket from "react-use-websocket";
-import {GuessGrid} from "mycrossword/dist/cjs/interfaces";
+import {CellChange, Char, GuessGrid} from "mycrossword/dist/cjs/interfaces";
 import {useDebounce} from "mycrossword/dist/cjs/hooks";
 
 const teamId = 'team1'
@@ -30,16 +30,16 @@ const Crossword = ({id, crosswordData}: CrosswordProps) => {
         lastMessage
     } = useWebSocket(`wss://cooperative-crosswords.onrender.com/move/${teamId}/${id}/${userId}`);
 
-    const updateGrid = useCallback(({pos, guess}) =>
-        sendMessage(JSON.stringify([{x: pos.col, y: pos.row, value: guess || ''}])
+    const updateGrid = useCallback((cellChange: CellChange) =>
+        sendMessage(JSON.stringify([{x: cellChange.pos.col, y: cellChange.pos.row, value: cellChange.guess || ''}])
         ), [sendMessage])
 
     useEffect(() => {
         if (lastMessage !== null) {
             const moves: Move[] = JSON.parse(lastMessage.data)
-            const initialAnswers = answers['value'].map(row => [...row])
+            const initialAnswers: Char[][] = answers['value'].map(row => [...row])
             for (const move of moves) {
-                initialAnswers[move.x][move.y] = move.value
+                initialAnswers[move.x][move.y] = move.value.charAt(0) as Char
             }
             setAnswers({value: initialAnswers})
         }
@@ -54,15 +54,19 @@ const Crossword = ({id, crosswordData}: CrosswordProps) => {
     return (
         <div>
             <h1>{`${new Date(crosswordData.date).toDateString()}: No ${crosswordData.number}`}</h1>
-            <h2>{`By ${crosswordData.creator.name}`}</h2>
+            <h2>{`By ${crosswordData.creator?.name}`}</h2>
             <MyCrossword id={id} key={key} data={crosswordData} onCellChange={updateGrid} loadGrid={answers}
                          theme={'deepOrange'}/>
         </div>
     )
 }
 
+type CrosswordWrapperParams = {
+    id: string;
+};
+
 const CrosswordWrapper = () => {
-    const {id} = useParams()
+    const { id } = useParams<CrosswordWrapperParams>()
 
     const [crosswordData, setCrosswordData] = useState<GuardianCrossword | undefined>(undefined)
     useEffect(() => {
@@ -76,7 +80,7 @@ const CrosswordWrapper = () => {
     if (crosswordData === undefined) {
         return <div>Loading...</div>
     }
-    return <Crossword id={id} crosswordData={crosswordData}/>
+    return <Crossword id={id || ''} crosswordData={crosswordData}/>
 }
 
 export default CrosswordWrapper
